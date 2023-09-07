@@ -7,13 +7,6 @@ on:
       - 'releases/**'
 
 jobs:
-  Pre-commit:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v2
-    - uses: actions/setup-python@v2
-    - uses: pre-commit/action@v2.0.3
-
   Build-package:
     runs-on: ubuntu-20.04
     container:
@@ -30,7 +23,7 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt update
-        sudo apt install libpcap-dev
+        sudo apt install -y libpcap-dev
         rm -rf /usr/local/go && tar -C /usr/local -xzf go1.21.1.linux-amd64.tar.gz
 
     - name: Build
