@@ -1,0 +1,129 @@
+name: "Deploy - On branch main/release Push"
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  Deploy-App-Internal-Release:
+    runs-on: ubuntu-20.04
+    container:
+      image: registry.aws.cloud.mov.ai/qa/ros-buildtools-noetic:v1.1.10
+      options: --user root
+      credentials:
+        username: ${{secrets.PORTUS_APP_USER}}
+        password: ${{secrets.PORTUS_APP_TOKEN}}
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Install dependencies
+      run: |
+        sudo apt update
+        # build deps
+        sudo apt install -y libpcap-dev
+        # go
+        wget https://go.dev/dl/go1.21.1.linux-amd64.tar.gz
+        tar -xzf go1.21.1.linux-amd64.tar.gz
+
+    - name: Build
+      run: |
+        export PATH=$PATH:./go/bin
+        make
+
+    - name: Find Package details
+      id: vars
+      run: |
+        PACKAGE_VERSION=$(dpkg-parsechangelog --show-field Version)
+        PACKAGE_NAME=$(dpkg-parsechangelog --show-field Source)
+        echo ::set-output name=pkg_name::$PACKAGE_NAME
+        echo ::set-output name=pkg_version::$PACKAGE_VERSION
+
+    - name: Raise Version
+      id: vars-after-raise
+      run: |
+        PACKAGE_VERSION=${{ steps.vars.outputs.pkg_version }}
+        main_version=${PACKAGE_VERSION%-*}
+        build_id="${PACKAGE_VERSION#*-}"
+        raised_buildid=$(($build_id+1))
+        RAISED_PACKAGE_VERSION="$main_version-$raised_buildid"
+        echo ::set-output name=pkg_version::$RAISED_PACKAGE_VERSION
+
+    - name: Pack debian
+      run: |
+        git config --global --add safe.directory $(pwd)
+        git config --global user.name '${{ secrets.RAISE_BOT_COMMIT_USER }}'
+        git config --global user.email '${{ secrets.RAISE_BOT_COMMIT_MAIL }}'
+        apt-get update
+        apt-get install -y devscripts equivs git-buildpackage
+        # Set the install command to be used by mk-build-deps (use --yes for non-interactive)
+        install_tool="apt-get -o Debug::pkgProblemResolver=yes --no-install-recommends --yes"
+        # Install build dependencies automatically
+        mk-build-deps --install --tool="${install_tool}" debian/control
+        # Add version into changelog and commit it
+        gbp dch --ignore-branch -N ${{ steps.vars-after-raise.outputs.pkg_version }} -c
+        # Build .deb with binaries only
+        dpkg-buildpackage -b --unsigned-source --unsigned-changes
+        # Store generated .deb
+        mkdir artifacts && \
+        cp ../*.deb artifacts
+      env:
+        DEB_BUILD_OPTIONS: "nocheck"
+
+    - name: Prepare raise variables
+      id: pre_raise
+      run: |
+        #echo ::set-output name=branch::${GITHUB_REF#refs/heads/}
+        echo "branch=${GITHUB_REF#refs/heads/}" >> $GITHUB_OUTPUT
+
+    - name: Raise App version
+      uses: CasperWA/push-protected@v2
+      with:
+        token: ${{ secrets.RAISE_BOT_COMMIT_PASSWORD }}
+        branch: ${{ steps.pre_raise.outputs.branch }}
+        unprotect_reviews: true
+
+    - name: Commit info
+      id: commit
+      shell: bash
+      run: |
+        commit_hash=$(git log --format="%H" -n 1)
+        #echo ::set-output name=commit_id::$commit_hash
+        echo "commit_id=$commit_hash" >> $GITHUB_OUTPUT
+
+    - name: Publish to Nexus ppa-testing
+      run: |
+          NEXUS_ENDPOINT="artifacts.cloud.mov.ai"
+          NEXUS_REPO="ppa-testing"
+          FILE_LOCATION=$(find artifacts/*.deb)
+          curl -u "${{ secrets.NEXUS_PUBLISHER_USR }}:${{ secrets.NEXUS_PUBLISHER_PWD }}" \
+          -H "Content-Type: multipart/form-data" \
+          --data-binary "@$FILE_LOCATION" \
+          "https://$NEXUS_ENDPOINT/repository/$NEXUS_REPO/"
+
+    - name: Publish to Nexus ppa-main
+      run: |
+          NEXUS_ENDPOINT="artifacts.cloud.mov.ai"
+          NEXUS_REPO="ppa-main"
+          FILE_LOCATION=$(find artifacts/*.deb)
+          curl -u "${{ secrets.NEXUS_PUBLISHER_USR }}:${{ secrets.NEXUS_PUBLISHER_PWD }}" \
+          -H "Content-Type: multipart/form-data" \
+          --data-binary "@$FILE_LOCATION" \
+          "https://$NEXUS_ENDPOINT/repository/$NEXUS_REPO/"
+
+    - name: Create Github Release
+      uses: softprops/action-gh-release@v1
+      with:
+        prerelease: false
+        name: "Release of ${{ steps.vars-after-raise.outputs.pkg_version  }}"
+        generate_release_notes: true
+        files: artifacts/*.deb
+        tag_name: ${{ steps.vars-after-raise.outputs.pkg_version  }}
+        target_commitish: ${{ steps.commit.outputs.commit_id }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - uses: DenverCoder1/doxygen-github-pages-action@v1
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
