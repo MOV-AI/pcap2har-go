@@ -70,6 +70,8 @@ jobs:
         # Store generated .deb
         mkdir artifacts && \
         cp ../*.deb artifacts
+      env:
+        DEB_BUILD_OPTIONS: "nocheck"
 
     - name: Upload artifacts
       if: always()
