@@ -23,12 +23,15 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt update
+        # build deps
         sudo apt install -y libpcap-dev
-        rm -rf /usr/local/go && tar -C /usr/local -xzf go1.21.1.linux-amd64.tar.gz
+        # go
+        wget go1.21.1.linux-amd64.tar.gz
+        tar -xzf go1.21.1.linux-amd64.tar.gz
 
     - name: Build
       run: |
-        export PATH=$PATH:/usr/local/go/bin
+        export PATH=$PATH:./go/bin
         make
 
     - name: Find Package details
