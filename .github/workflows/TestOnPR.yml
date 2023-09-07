@@ -29,6 +29,7 @@ jobs:
 
     - name: Install dependencies
       run: |
+        sudo apt update
         sudo apt install libpcap-dev
         rm -rf /usr/local/go && tar -C /usr/local -xzf go1.21.1.linux-amd64.tar.gz
 
