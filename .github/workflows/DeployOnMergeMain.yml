@@ -123,7 +123,3 @@ jobs:
         target_commitish: ${{ steps.commit.outputs.commit_id }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-    - uses: DenverCoder1/doxygen-github-pages-action@v1
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
