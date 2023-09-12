@@ -1,4 +1,4 @@
-pcap2har (0.0.0-27) UNRELEASED; urgency=medium
+pcap2har (0.0.0-28) UNRELEASED; urgency=medium
 
   [ maintainer ]
   * Initial release. (Closes: #XXXXXX)
@@ -31,5 +31,6 @@ pcap2har (0.0.0-27) UNRELEASED; urgency=medium
   * UNRELEASED
   * UNRELEASED
   * UNRELEASED
+  * UNRELEASED
 
- -- root <root@b9a7904f16e8>  Tue, 12 Sep 2023 11:22:37 +0000
+ -- root <root@888b220dddfd>  Tue, 12 Sep 2023 11:24:31 +0000
