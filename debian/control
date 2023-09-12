@@ -1,0 +1,11 @@
+Source: pcap2har
+Maintainer: David Dias <david.dias@mov.ai>
+Section: unknown
+Priority: optional
+Build-Depends: unzip, debhelper (>= 7.4.3)
+Standards-Version: 3.9.1
+
+Package: pcap2har
+Architecture: all
+Depends: ${misc:Depends}
+Description: Converts .pcap files to .har files
